@@ -1,9 +1,9 @@
 ;; Copyright (c) 2015 Jonathan L. Leonard
 
-(ns graphql-tlc.test.core
+(ns speako.test.core
   (:require [cljs.test :refer-macros [deftest is async]]
             [cljs.nodejs :as node]
-            [graphql-tlc.consumer :as consumer]))
+            [speako.consumer :as consumer]))
 
 (def gql (node/require "graphql"))
 

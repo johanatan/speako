@@ -1,6 +1,6 @@
 ;; Copyright (c) 2015 Jonathan L. Leonard
 
-(ns graphql-tlc.common
+(ns speako.common
   (:require [goog.string.format]
             [cljs.pprint :as pprint]
             [clojure.string :as string]

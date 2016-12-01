@@ -1,8 +1,8 @@
 ;; Copyright (c) 2015 Jonathan L. Leonard
 
-(ns graphql-tlc.consumer
-  (:require [graphql-tlc.common :as common]
-            [graphql-tlc.schema :as schema]
+(ns speako.consumer
+  (:require [speako.common :as common]
+            [speako.schema :as schema]
             [clojure.set :as set]
             [clojure.walk :as walk]
             [clojure.string]

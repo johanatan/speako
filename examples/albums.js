@@ -1,5 +1,5 @@
 
-var tlc = require('../');
+var speako = require('../');
 var gql = require('graphql');
 var labels = [
     {'id': 1, 'name': 'Apple Records', 'founded': '1968'},
@@ -33,7 +33,7 @@ var dataResolver = {"query":  function (typename, predicate) {
   return inputs;
 }};
 var schema =
-  tlc.getSchema(dataResolver,
+  speako.getSchema(dataResolver,
                 ["type Label { id: ID! name: String founded: String album: Album } ",
                  "type Album { id: ID! name: String releaseDate: String artist: String label: Label }"].join(" "));
 var printer = function(res) { console.log(JSON.stringify(res, null, 2)); };

@@ -12,7 +12,7 @@ build:
 	mkdir -p out/prod/resources
 	cp resources/* out/prod/resources
 	lein cljsbuild once main
-	echo 'module.exports.getSchema = graphql_tlc.consumer.get_schema;' >> out/prod/graphql-tlc.js
+	echo 'module.exports.getSchema = speako.consumer.get_schema;' >> out/prod/speako.js
 
 ONCE_FLAG=once
 test:
@@ -28,7 +28,7 @@ debug: DEBUG_FLAG=--debug
 debug: run
 
 run: build
-	cd out/prod/ && node graphql-tlc.js $(DEBUG_FLAG)
+	cd out/prod/ && node speako.js $(DEBUG_FLAG)
 
 publish: clean build
 	npm publish

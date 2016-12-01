@@ -1,10 +1,10 @@
-# graphql-tlc
+# speako
 
 ### A simpler interface to GraphQL
 
 #### Install
 
-* NPM - `npm install graphql-tlc` 
+* NPM - `npm install speako`
 
 #### Motivation
 
@@ -14,7 +14,7 @@ by hand-crafting some verbose & noisy JavaScript.
 
 See: [starWarsSchema.js](https://github.com/graphql/graphql-js/blob/master/src/__tests__/starWarsSchema.js).
 
-The equivalent schema in GraphQL Type Language is much more concise:
+The equivalent schema in GraphQL Schema Language is much more concise:
 ```
 enum Episode { NEWHOPE, EMPIRE, JEDI }
 
@@ -37,7 +37,7 @@ type Droid {
 union Character = Human | Droid
 ```
 
-Given a specification of a data model in GraphQL Type Language, graphql-tlc automatically
+Given a specification of a data model in GraphQL Schema Language, speako automatically
 generates the `GraphQLSchema` instance that GraphQL requires and binds its `resolve` methods
 to a specified set of functions for querying (i.e., selecting) and mutating (i.e., insert,
 update and delete mutations).
@@ -46,7 +46,7 @@ update and delete mutations).
 
 ```javascript
 $ node --harmony-destructuring
-> var tlc = require('graphql-tlc');
+> var speako = require('speako');
 > var gql = require('graphql');
 > var albums = [
 ... {'id': 1, 'name': 'Dark Side Of The Moon', 'releaseDate': 'March 1, 1973',
@@ -71,7 +71,7 @@ $ node --harmony-destructuring
 ...   albums.push(inputs);
 ...   return inputs;
 ... }};
-> var schema = tlc.getSchema(dataResolver,
+> var schema = speako.getSchema(dataResolver,
 ... "type Album { id: ID! name: String releaseDate: String artist: String }");
 > var printer = function(res) { console.log(JSON.stringify(res, null, 2)); };
 > gql.graphql(schema, "{ Album(artist: \"Pink Floyd\") { name artist releaseDate } }").then(printer);

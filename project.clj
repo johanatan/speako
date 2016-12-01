@@ -1,5 +1,5 @@
-(defproject graphql-tlc "0.1.0-SNAPSHOT"
-  :description "GraphQL Type Language Compiler"
+(defproject speako "0.1.0-SNAPSHOT"
+  :description "GraphQL Schema Language Compiler"
   :dependencies [[org.clojure/clojure "1.7.0"]
                  [org.clojure/core.match "0.3.0-alpha4"]
                  [com.lucasbradstreet/cljs-uuid-utils "1.0.2"]
@@ -19,25 +19,24 @@
       :test {
         :source-paths ["src" "test"]
         :compiler {
-          :output-to "out/test/graphql-tlc.js"
+          :output-to "out/test/speako.js"
           :output-dir "out/test"
-          :main 'graphql-tlc.runner
+          :main 'speako.runner
           :optimizations :simple
           :pretty-print true
           :target :nodejs
           :hashbang false
           :cache-analysis true
-          :source-map "out/test/graphql-tlc.js.map"}}
+          :source-map "out/test/speako.js.map"}}
       :main {
         :source-paths ["src"]
         :compiler {
-          :output-to "out/prod/graphql-tlc.js"
-          ;:source-map "out/prod/graphql-tlc.js.map"
+          :output-to "out/prod/speako.js"
           :output-dir "out/prod"
           :optimizations :simple
           :pretty-print true
           :target :nodejs
           :hashbang false
           :cache-analysis true}}}
-    :test-commands {:unit ["node" :node-runner "out/test/graphql-tlc.js"]}})
+    :test-commands {:unit ["node" :node-runner "out/test/speako.js"]}})
 

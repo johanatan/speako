@@ -1,15 +1,15 @@
 {
-  "name": "graphql-tlc",
+  "name": "speako",
   "preferGlobal": false,
-  "version": "0.9.27",
+  "version": "0.9.28",
   "author": "Jonathan Leonard <johanatan@gmail.com>",
-  "description": "A compiler (written in ClojureScript) for GraphQL type language.",
+  "description": "A compiler (written in ClojureScript) for GraphQL Schema Language.",
   "contributors": [
     "Jonathan Leonard <johanatan@gmail.com>"
   ],
   "repository": {
     "type": "git",
-    "url": "git://github.com/johanatan/graphql-type-lang-compiler.git"
+    "url": "git://github.com/johanatan/speako.git"
   },
   "license": "SEE LICENSE IN <NONE>",
   "dependencies": {
@@ -23,9 +23,9 @@
   "engines": {
     "node": ">= 4.1.1"
   },
-  "homepage": "https://github.com/johanatan/graphql-type-lang-compiler",
-  "main": "out/prod/graphql-tlc.js",
-  "files": ["out/prod/graphql-tlc.js", "README.md", "examples/albums.js"],
+  "homepage": "https://github.com/johanatan/speako",
+  "main": "out/prod/speako.js",
+  "files": ["out/prod/speako.js", "README.md", "examples/albums.js"],
   "tonicExampleFilename": "examples/albums.js"
 }
 

@@ -1,9 +1,9 @@
 ;; Copyright (c) 2015 Jonathan L. Leonard
 
-(ns graphql-tlc.schema
+(ns speako.schema
   (:require [cljs.nodejs :as node]
             [cljs.core.match :refer-macros [match]]
-            [graphql-tlc.common :as common]
+            [speako.common :as common]
             [instaparse.core :as insta]))
 
 (def fs (node/require "fs"))
