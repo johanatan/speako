@@ -6,7 +6,6 @@
                  [com.lucasbradstreet/instaparse-cljs "1.4.1.0"]
                  [org.clojure/clojurescript "0.0-3308"]]
   :node-dependencies [[source-map-support "0.2.8"]
-                      [flat "2.0.1"]
                       [graphql "0.8.2"]]
   :plugins [[lein-npm "0.4.0"]
             [lein-doo "0.1.5-SNAPSHOT"]

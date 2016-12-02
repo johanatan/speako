@@ -1,6 +1,7 @@
 
 var speako = require('../');
 var gql = require('graphql');
+var _ = require('lodash');
 var labels = [
     {'id': 1, 'name': 'Apple Records', 'founded': '1968'},
     {'id': 2, 'name': 'Harvest Records', 'founded': '1969'}];
@@ -13,15 +14,17 @@ var albums = [
      'artist': 'Pink Floyd', 'label': labels[1]}];
 var dataResolver = {"query":  function (typename, predicate) {
   console.assert(typename == "Album");
-  if (predicate == "all()") return albums;
+  var parsed = JSON.parse(predicate);
+  if (_.isEqual(parsed, {"all": true})) return albums;
   else {
-    var predicates = predicate.split("&");
-    var filters = predicates.map(function(p) {
-      var [field, value] = p.split("=");
-      var fields = field.split(".");
-      if (fields.length == 2) {
-          console.assert(fields[0] == "label");
-          return function(elem) { return elem[fields[0]][fields[1]] == value; };
+    var pairs = _.toPairs(parsed);
+    var filters = pairs.map(function (p) {
+      var [field, value] = p;
+      if (typeof value === "object") {
+        console.assert(field == "label");
+        return function(elem) {
+          var innerKey = _.first(_.keys(value));
+          return elem[field][innerKey] == value[innerKey]; };
       }
       return function(elem) { return elem[field] == value; };
     });

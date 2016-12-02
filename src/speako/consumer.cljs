@@ -9,7 +9,6 @@
             [cljs.nodejs :as node]))
 
 (def ^:private gql (node/require "graphql"))
-(def ^:private flat (node/require "flat"))
 
 (defprotocol DataResolver
   (query [this typename predicate])
@@ -32,11 +31,9 @@
         enums (atom {})]
     (letfn [
       (get-by-id [typename id]
-        (query data-resolver typename (common/format "id=%s" (js->clj id))))
+        (query data-resolver typename (js/JSON.stringify #js {"id" id})))
       (get-by-fields [typename fields]
-        (let [msg (clojure.string/join "&" (map #(common/format "%s=%s" %1 (js->clj (aget fields %1)))
-                                                (common/jskeys fields)))]
-          (query data-resolver typename msg)))
+        (query data-resolver typename (js/JSON.stringify fields)))
       (is-enum? [typ]
         (contains? (set (keys @enums)) typ))
       (is-primitive? [typ]
@@ -134,10 +131,10 @@
                         [{typ
                           {:type (gql.GraphQLList. (get @type-map typ))
                            :args args
-                           :resolve (fn [root obj] (clj->js (get-by-fields typ (flat obj))))}}
+                           :resolve (fn [root obj] (clj->js (get-by-fields typ obj)))}}
                         {(common/pluralize typ)
                          {:type (gql.GraphQLList. (get @type-map typ))
-                          :resolve (fn [root] (query data-resolver typ "all()"))}}]]
+                          :resolve (fn [root] (query data-resolver typ (js/JSON.stringify #js {"all" true})))}}]]
                   (common/dbg-print "Query descriptors for typename: %s: %s" typ res) res))
               (get-args [typ req-mod?]
                 (letfn [
