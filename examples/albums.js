@@ -34,6 +34,11 @@ var dataResolver = {"query":  function (typename, predicate) {
   inputs.id = albums.length + 1;
   albums.push(inputs);
   return inputs;
+}, "delete": function (typename, id) {
+  var [deleted, remaining] = _.partition(albums, function(elem) { return elem.id == id; });
+  albums = remaining;
+  console.assert(deleted.length == 1);
+  return _.head(deleted);
 }};
 var schema =
   speako.getSchema(dataResolver,
@@ -48,3 +53,4 @@ gql.graphql(schema, "{ Albums { name artist releaseDate } }").then(printer);
 gql.graphql(schema,
   "mutation m { createAlbum(name:\"The Division Bell\", releaseDate: \"March 28, 1994\", artist:\"Pink Floyd\") { id name } }")
     .then(printer);
+gql.graphql(schema, "mutation m { deleteAlbum(id: 3) { id name } }").then(printer);

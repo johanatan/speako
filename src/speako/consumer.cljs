@@ -151,15 +151,14 @@
                         res (map (fn [pair] {(first pair) {:type (get-mutation-arg-type (second pair))}}) sans-id)] res)))
               (get-mutations [typ]
                 (letfn [
-                  (get-id [o] (get o "id"))
                   (get-mutation [prefix resolver req-mod? get-args? transform args] {(common/format "%s%s" prefix typ) {
                     :type (get @type-map typ)
                     :args (into args (if get-args? (get-args typ req-mod?) {}))
-                    :resolve (fn [root obj] (resolver data-resolver typ (transform (js->clj obj))))}})]
+                    :resolve (fn [root obj] (resolver data-resolver typ (transform obj)))}})]
                   (let [res [(get-mutation "create" create true true identity {})
                              (get-mutation "update" modify false true identity
                                            {:id {:type (gql.GraphQLNonNull. gql.GraphQLID)}})
-                             (get-mutation "delete" delete false false get-id
+                             (get-mutation "delete" delete false false #(aget % "id")
                                            {:id {:type (gql.GraphQLNonNull. gql.GraphQLID)}})]]
                     (common/dbg-print "Mutation descriptors for typename: %s: %s" typ res) res)))
               (create-obj-type [name fields]
