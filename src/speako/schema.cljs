@@ -1,4 +1,4 @@
-;; Copyright (c) 2015 Jonathan L. Leonard
+;; Copyright (c) 2016 Jonathan L. Leonard
 
 (ns speako.schema
   (:require [cljs.nodejs :as node]
@@ -7,7 +7,6 @@
             [instaparse.core :as insta]))
 
 (def fs (node/require "fs"))
-(def gql (node/require "graphql"))
 
 (def ^:private grammar
   "<S> = TYPE+

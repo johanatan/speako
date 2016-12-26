@@ -1,4 +1,4 @@
-;; Copyright (c) 2015 Jonathan L. Leonard
+;; Copyright (c) 2016 Jonathan L. Leonard
 
 (ns speako.common
   (:require [goog.string.format]
