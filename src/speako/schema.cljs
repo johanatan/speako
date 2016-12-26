@@ -60,7 +60,9 @@
 (defn- get-enum-descriptors [parsed]
   (assert (= {:tag :ENUM_KEYWORD, :content (list "enum")}) (first parsed))
   (let [typename (extract-single-content (second parsed))
-        values (map-indexed (fn [i p] {(extract-single-content (extract-single-content p)) {:value (+ 1 i)}}) (drop 2 parsed))]
+        values (map-indexed (fn [i p]
+                              {(extract-single-content (extract-single-content p))
+                               {:value (+ 1 i)}}) (drop 2 parsed))]
     [typename values]))
 
 (defprotocol TypeConsumer
@@ -81,9 +83,9 @@
       (assert (= :TYPE (get p :tag)) (common/format "Expected :TYPE. Actual: %s. Parsed: %s" (get p :tag) p))
       (let [content (extract-content p)
             [impl descriptors] (match [(get (first content) :tag)]
-              [:UNION_KEYWORD] [consume-union (get-union-descriptors content)]
-              [:TYPE_KEYWORD]  [consume-object (get-object-descriptors content)]
-              [:ENUM_KEYWORD]  [consume-enum (get-enum-descriptors content)])]
+                                 [:UNION_KEYWORD] [consume-union (get-union-descriptors content)]
+                                 [:TYPE_KEYWORD]  [consume-object (get-object-descriptors content)]
+                                 [:ENUM_KEYWORD]  [consume-enum (get-enum-descriptors content)])]
         (doseq [consumer consumers]
           (apply (partial impl consumer) descriptors))))
     [schema-str (doall (map finished consumers))]))
