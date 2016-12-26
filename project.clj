@@ -5,7 +5,7 @@
                  [org.clojure/clojurescript "1.9.293"]
                  [org.clojure/core.match "0.3.0-alpha4"]
                  [com.lucasbradstreet/cljs-uuid-utils "1.0.2"]
-                 [com.lucasbradstreet/instaparse-cljs "1.4.1.0"]]
+                 [instaparse "1.4.4"]]
   :node-dependencies [[source-map-support "0.2.8"]
                       [graphql "0.8.2"]]
   :plugins [[lein-npm "0.6.2"]

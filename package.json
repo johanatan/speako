@@ -1,7 +1,7 @@
 {
   "name": "speako",
   "preferGlobal": false,
-  "version": "0.10.5",
+  "version": "0.10.6",
   "author": "Jonathan Leonard <johanatan@gmail.com>",
   "description": "A compiler (written in ClojureScript) for GraphQL Schema Language.",
   "contributors": [
