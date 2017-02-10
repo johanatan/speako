@@ -32,4 +32,5 @@ run: build
 
 publish: clean build
 	npm publish
+	lein deploy clojars
 

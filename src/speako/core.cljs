@@ -22,15 +22,15 @@
     (modify [_ typename inputs] (modify typename (if is-js? (clj->js inputs) inputs)))
     (delete [_ typename id] (delete typename id))))
 
-(defn ^:export get-schema [resolver-methods schema-filename-or-contents]
-  (let [is-js? (object? resolver-methods)]
-    (first (second
-            (schema/load-schema
-             schema-filename-or-contents
-             (GraphQLConsumer
-              (get-data-resolver
-               is-js?
-               (if is-js? (walk/keywordize-keys (js->clj resolver-methods)) resolver-methods))))))))
+(defn ^:export get-schema [config schema-filename-or-contents]
+  (let [is-js? (object? config)
+        config-map (if is-js? (walk/keywordize-keys (js->clj config)) config)
+        resolver-methods (select-keys config-map [:query :create :modify :delete])
+        user-consumers (or (:consumers (select-keys config-map [:consumers])) [])
+        _ (assert (vector? user-consumers) "User supplied consumers must be of type vector.")
+        consumer (GraphQLConsumer (get-data-resolver is-js? config-map))
+        consumers (into [consumer] user-consumers)]
+    (first (second (apply (partial schema/load-schema schema-filename-or-contents) consumers)))))
 
 (defn noop [] nil)
 (set! *main-cli-fn* noop)

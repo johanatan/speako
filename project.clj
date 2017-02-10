@@ -1,6 +1,7 @@
-(defproject speako "0.1.0-SNAPSHOT"
+(defproject speako "0.10.13"
   :description "GraphQL Schema Language Compiler"
   :url "https://github.com/johanatan/speako"
+  :license "none"
   :dependencies [[org.clojure/clojure "1.8.0"]
                  [org.clojure/clojurescript "1.9.293"]
                  [org.clojure/core.match "0.3.0-alpha4"]
