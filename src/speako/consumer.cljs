@@ -3,12 +3,13 @@
 (ns speako.consumer
   (:require [speako.common :as common]
             [speako.schema :as schema]
-            [clojure.set :as set]
+            [clojure.set :refer [subset?] :as set]
             [clojure.walk :as walk]
             [clojure.string]
             [cljs.nodejs :as node]))
 
 (def ^:private gql (node/require "graphql"))
+(def ^:private UnionInputType (node/require "graphql-union-input-type"))
 
 (defprotocol DataResolver
   (query [this typename predicate])
@@ -102,9 +103,9 @@
                                    (common/pprint-str fieldnames)))
             (swap! type-map assoc typename res)
             (swap! fields-map assoc fieldnames [typename (map rest field-descriptors)])
-            (console/log (common/format "Created object type thunk: %s" typename))
+            (js/console.log (common/format "Created object type thunk: %s" typename))
             (swap! inputs-map assoc typename #(create-input-object {} res))
-            (console/log (common/format "Created input object type thunk: %s for type: %s"
+            (js/console.log (common/format "Created input object type thunk: %s for type: %s"
                                         (input-object-typename typename) typename))))
         (consume-union [_ typename constituents]
           (let [types (map #(get @type-map %) constituents)
@@ -114,67 +115,78 @@
                 res (gql.GraphQLUnionType. (clj->js descriptor))]
             (swap! type-map assoc typename res)
             (swap! unions concat [typename])
-            (console/log (common/format "Created union type: %s: descriptor: %s" typename descriptor)) [res descriptor]))
+            (js/console.log (common/format "Created union type: %s: descriptor: %s" typename descriptor))
+            (swap! inputs-map assoc typename
+                   #(UnionInputType
+                     (clj->js {:name (input-object-typename typename)
+                               :resolveTypeFromAst
+                               (fn [ast-js]
+                                 (let [ast (js->clj ast-js :keywordize-keys true)
+                                       fields (set (map (comp :value :name) (:fields ast)))
+                                       fld-map (map (fn [r] [(set (r 0)) ((r 1) 0)]) @fields-map)
+                                       matches (filter (fn [f] (subset? fields (f 0))) fld-map)
+                                       _ (assert (= 1 (count matches))
+                                                 "Union input field names must uniquely identify intended target.")
+                                       union-type (second (first matches))]
+                                   (get-input-type union-type false false)))})))
+            (js/console.log (common/format "Created union input object type thunk: %s for type: %s"
+                                           (input-object-typename typename) typename))
+            [res descriptor]))
         (consume-enum [_ typename constituents]
           (let [descriptor {:name typename :values (apply merge constituents)}
                 res (gql.GraphQLEnumType. (clj->js descriptor))]
             (swap! type-map assoc typename res)
             (swap! enums assoc typename constituents)
-            (console/log (common/format "Created enum type: %s: descriptor: %s" typename descriptor)) [res descriptor]))
+            (js/console.log (common/format "Created enum type: %s: descriptor: %s" typename descriptor))
+            [res descriptor]))
         (finished [_]
-          (let [union-input-type-desc {:name "Union"
-                                       :fields {:type {:type (gql.GraphQLNonNull. gql.GraphQLString)}
-                                                :id {:type (gql.GraphQLNonNull. gql.GraphQLID)}}}
-                union-input-type (gql.GraphQLInputObjectType. (clj->js union-input-type-desc))]
-            (letfn [(get-query-descriptors [typ]
-                      (let [[field-names field-meta] (first (filter (fn [[k v]] (= (v 0) typ)) @fields-map))
-                            zipped (map vector field-names (second field-meta))
-                            with-types (map (fn [[k v]] [k (get-input-type (nth v 0) (nth v 1) false)]) zipped)
-                            args (apply merge (map #(do {(keyword (%1 0)) {:type (%1 1)}}) with-types))
-                            res
-                            [{typ
-                              {:type (gql.GraphQLList. (get @type-map typ))
-                               :args args
-                               :resolve (fn [root obj] (clj->js (get-by-fields typ obj)))}}
-                             {(common/pluralize typ)
-                              {:type (gql.GraphQLList. (get @type-map typ))
-                               :resolve (fn [root] (query data-resolver typ (js/JSON.stringify #js {"all" true})))}}]]
-                        (common/dbg-print "Query descriptors for typename: %s: %s" typ res) res))
-                    (get-args [typ req-mod?]
-                      (letfn [(get-ref-type [typ]
-                                (cond (is-enum? typ) (get @type-map typ)
-                                      (contains? (set @unions) typ) union-input-type
-                                      :else (get-input-type typ false false)))
-                              (get-mutation-arg-type [[typ is-list? is-non-null?]]
-                                (modify-type (or (get primitive-types typ) (get-ref-type typ))
-                                             is-list? (if req-mod? is-non-null? false)))]
-                        (let [kvs (seq @fields-map)
-                              kv (common/single (filter #(= (first (second %)) typ) kvs))
-                              pairs (partition 2 (interleave (first kv) (second (second kv))))
-                              sans-id (remove #(= (first %) "id") pairs)
-                              res (map (fn [pair]
-                                          {(first pair) {:type (get-mutation-arg-type (second pair))}}) sans-id)] res)))
-                    (get-mutations [typ]
-                      (letfn [(get-mutation [prefix resolver req-mod? get-args? transform args]
-                                {(common/format "%s%s" prefix typ)
-                                 {:type (get @type-map typ)
-                                   :args (into args (if get-args? (get-args typ req-mod?) {}))
-                                   :resolve (fn [root obj] (resolver data-resolver typ (transform obj)))}})]
-                        (let [res [(get-mutation "create" create true true identity {})
-                                   (get-mutation "update" modify false true identity
-                                                 {:id {:type (gql.GraphQLNonNull. gql.GraphQLID)}})
-                                   (get-mutation "delete" delete true true identity
-                                                 {:id {:type gql.GraphQLID}})]]
-                                        (common/dbg-print "Mutation descriptors for typename: %s: %s" typ res) res)))
-                    (create-obj-type [name fields]
-                      (let [descriptor {:name name :fields (apply merge (flatten fields))}
-                            res (gql.GraphQLObjectType. (clj->js descriptor))]
-                        (common/dbg-print "Created GraphQLObjectType: %s" descriptor) res))]
-              (let [types (set/difference (set (keys @type-map)) (set (keys primitive-types)) (set (keys @enums)))]
-                (common/dbg-print "Created union input type: %s" union-input-type-desc)
-                (reset! inputs-map (into {} (for [[k v] @inputs-map] [k (v)])))
-                (gql.GraphQLSchema.
-                 (clj->js
-                  {:query (create-obj-type "RootQuery" (map get-query-descriptors types))
-                   :mutation
-                   (create-obj-type "RootMutation" (map get-mutations (set/difference types (set @unions))))}))))))))))
+          (letfn [(get-query-descriptors [typ]
+                    (let [[field-names field-meta] (first (filter (fn [[k v]] (= (v 0) typ)) @fields-map))
+                          zipped (map vector field-names (second field-meta))
+                          with-types (map (fn [[k v]] [k (get-input-type (nth v 0) (nth v 1) false)]) zipped)
+                          args (apply merge (map #(do {(keyword (%1 0)) {:type (%1 1)}}) with-types))
+                          res
+                          [{typ
+                            {:type (gql.GraphQLList. (get @type-map typ))
+                             :args args
+                             :resolve (fn [root obj] (clj->js (get-by-fields typ obj)))}}
+                           {(common/pluralize typ)
+                            {:type (gql.GraphQLList. (get @type-map typ))
+                             :resolve (fn [root] (query data-resolver typ (js/JSON.stringify #js {"all" true})))}}]]
+                      (common/dbg-print "Query descriptors for typename: %s: %s" typ res) res))
+                  (get-args [typ req-mod?]
+                    (letfn [(get-ref-type [typ]
+                              (cond (is-enum? typ) (get @type-map typ)
+                                    :else (get-input-type typ false false)))
+                            (get-mutation-arg-type [[typ is-list? is-non-null?]]
+                              (modify-type (or (get primitive-types typ) (get-ref-type typ))
+                                           is-list? (if req-mod? is-non-null? false)))]
+                      (let [kvs (seq @fields-map)
+                            kv (common/single (filter #(= (first (second %)) typ) kvs))
+                            pairs (partition 2 (interleave (first kv) (second (second kv))))
+                            sans-id (remove #(= (first %) "id") pairs)
+                            res (map (fn [pair]
+                                       {(first pair) {:type (get-mutation-arg-type (second pair))}}) sans-id)] res)))
+                  (get-mutations [typ]
+                    (letfn [(get-mutation [prefix resolver req-mod? get-args? transform args]
+                              {(common/format "%s%s" prefix typ)
+                               {:type (get @type-map typ)
+                                :args (into args (if get-args? (get-args typ req-mod?) {}))
+                                :resolve (fn [root obj] (resolver data-resolver typ (transform obj)))}})]
+                      (let [res [(get-mutation "create" create true true identity {})
+                                 (get-mutation "update" modify false true identity
+                                               {:id {:type (gql.GraphQLNonNull. gql.GraphQLID)}})
+                                 (get-mutation "delete" delete true true identity
+                                               {:id {:type gql.GraphQLID}})]]
+                        (common/dbg-print "Mutation descriptors for typename: %s: %s" typ res) res)))
+                  (create-obj-type [name fields]
+                    (let [descriptor {:name name :fields (apply merge (flatten fields))}
+                          res (gql.GraphQLObjectType. (clj->js descriptor))]
+                      (common/dbg-print "Created GraphQLObjectType: %s" descriptor) res))]
+            (let [types (set/difference (set (keys @type-map)) (set (keys primitive-types)) (set (keys @enums)))]
+              (reset! inputs-map (into {} (for [[k v] @inputs-map] [k (v)])))
+              (gql.GraphQLSchema.
+               (clj->js
+                {:query (create-obj-type "RootQuery" (map get-query-descriptors types))
+                 :mutation
+                 (create-obj-type "RootMutation" (map get-mutations (set/difference types (set @unions))))})))))))))

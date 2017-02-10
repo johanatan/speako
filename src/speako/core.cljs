@@ -5,7 +5,8 @@
   (:require [speako.consumer :refer [GraphQLConsumer] :as consumer]
             [speako.schema :as schema]
             [clojure.walk :as walk]
-            [cljs.nodejs :as nodejs]))
+            [cljs.nodejs :as nodejs]
+            [speako.common :as common]))
 
 (nodejs/enable-util-print!)
 

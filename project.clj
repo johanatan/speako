@@ -1,4 +1,4 @@
-(defproject speako "0.10.13"
+(defproject speako "0.10.15"
   :description "GraphQL Schema Language Compiler"
   :url "https://github.com/johanatan/speako"
   :license "none"
@@ -8,6 +8,7 @@
                  [com.lucasbradstreet/cljs-uuid-utils "1.0.2"]
                  [instaparse "1.4.4"]]
   :node-dependencies [[source-map-support "0.2.8"]
+                      [graphql-union-input-type "0.2.2"]
                       [graphql "0.8.2"]]
   :plugins [[lein-npm "0.6.2"]
             [lein-cljsbuild "1.1.4"]]
