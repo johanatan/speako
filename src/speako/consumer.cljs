@@ -28,7 +28,7 @@
   (let [type-map (atom primitive-types)
         inputs-map (atom {})
         fields-map (atom {})
-        unions (atom [])
+        unions (atom #{})
         enums (atom {})]
     (letfn [(get-by-id [typename id]
               (query data-resolver typename (js/JSON.stringify #js {"id" id})))
@@ -74,7 +74,9 @@
                   (contains? (set (keys created)) @field-type)
                   (reset! field-type (created @field-type))
                   (not (gql.isInputType @field-type))
-                  (reset! field-type (create-input-object created @field-type)))
+                  (if (contains? @inputs-map (.-name @field-type))
+                    (reset! field-type (@inputs-map (.-name @field-type)))
+                    (reset! field-type (create-input-object created @field-type))))
                 (clj->js {:type (reduce (fn [typ clas] (clas. typ)) @field-type @wrappers)})))
             (create-input-object [created object-type]
               (let [cell (atom nil)
@@ -114,7 +116,7 @@
                                                        (get @type-map (first (get @fields-map fields)))))}
                 res (gql.GraphQLUnionType. (clj->js descriptor))]
             (swap! type-map assoc typename res)
-            (swap! unions concat [typename])
+            (swap! unions conj typename)
             (js/console.log (common/format "Created union type: %s: descriptor: %s" typename descriptor))
             (swap! inputs-map assoc typename
                    #(UnionInputType
@@ -189,4 +191,4 @@
                (clj->js
                 {:query (create-obj-type "RootQuery" (map get-query-descriptors types))
                  :mutation
-                 (create-obj-type "RootMutation" (map get-mutations (set/difference types (set @unions))))})))))))))
+                 (create-obj-type "RootMutation" (map get-mutations (set/difference types @unions)))})))))))))
