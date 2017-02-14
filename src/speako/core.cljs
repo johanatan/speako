@@ -17,11 +17,21 @@
                                          create (bail "create")
                                          modify (bail "modify")
                                          delete (bail "delete")}}]
-  (reify consumer/DataResolver
-    (query [_ typename predicate] (query typename predicate))
-    (create [_ typename inputs] (create typename (if is-js? (clj->js inputs) inputs)))
-    (modify [_ typename inputs] (modify typename (if is-js? (clj->js inputs) inputs)))
-    (delete [_ typename id] (delete typename id))))
+  (let [to-js (if is-js? clj->js identity)
+        stringify #(js/JSON.stringify (clj->js %))]
+    (reify consumer/DataResolver
+      (query [_ typename predicate]
+        (common/dbg-print "speako: query: typename: %s, predicate: %s" typename predicate)
+        (query typename predicate))
+      (create [_ typename inputs]
+        (common/dbg-print "speako: create: typename: %s, inputs: %s" typename (stringify inputs))
+        (create typename (to-js inputs)))
+      (modify [_ typename inputs]
+        (common/dbg-print "speako: modify: typename: %s, inputs: %s" typename (stringify inputs))
+        (modify typename (to-js inputs)))
+      (delete [_ typename id]
+        (common/dbg-print "speako: delete: typename: %s, id: %s" typename (stringify id))
+        (delete typename id)))))
 
 (defn ^:export get-schema [config schema-filename-or-contents]
   (let [is-js? (object? config)
@@ -32,6 +42,13 @@
         consumer (GraphQLConsumer (get-data-resolver is-js? config-map))
         consumers (into [consumer] user-consumers)]
     (first (second (apply (partial schema/load-schema schema-filename-or-contents) consumers)))))
+
+(defn ^:export set-debug [debug?]
+  (assert (boolean? debug?))
+  (reset! common/DEBUG debug?))
+
+(def ^:export getSchema get-schema)
+(def ^:export setDebug set-debug)
 
 (defn noop [] nil)
 (set! *main-cli-fn* noop)

@@ -49,6 +49,7 @@ var schema =
                 ["type Label { id: ID! name: String founded: String album: Album } ",
                  "type Album { id: ID! name: String releaseDate: String artist: String label: Label }"].join(" "));
 var printer = function(res) { console.log(JSON.stringify(res, null, 2)); };
+speako.setDebug(true);
 gql.graphql(schema,
   "{ Album(artist: \"Pink Floyd\", label: { name: \"Harvest Records\" }) { name artist releaseDate } }") .then(printer);
 gql.graphql(schema, "{ Album(artist: \"Pink Floyd\", name: \"The Wall\") { name artist releaseDate } }").then(printer);

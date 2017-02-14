@@ -12,7 +12,7 @@ build:
 	mkdir -p out/prod/resources
 	cp resources/* out/prod/resources
 	lein cljsbuild once main
-	echo 'module.exports.getSchema = speako.core.get_schema;' >> out/prod/speako.js
+	echo 'module.exports = speako.core;' >> out/prod/speako.js
 
 ONCE_FLAG=once
 test:
