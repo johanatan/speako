@@ -111,9 +111,18 @@
                                         (input-object-typename typename) typename))))
         (consume-union [_ typename constituents]
           (let [types (map #(get @type-map %) constituents)
+                constituent-set (set constituents)
                 descriptor {:name typename :types types
-                            :resolveType (fn [value] (let [fields (keys (js->clj value))]
-                                                       (get @type-map (first (get @fields-map fields)))))}
+                            :resolveType
+                            (fn [value]
+                              (let [fields (set (keys (first (js->clj value))))
+                                    type-fields (filter #(constituent-set ((%1 1) 0)) @fields-map)
+                                    fld-map (map #(do [(set (%1 0)) ((%1 1) 0)]) type-fields)
+                                    counts (map #(do [(count (clojure.set/intersection fields (%1 0))) (%1 1)])
+                                                fld-map)
+                                    sorted (sort-by first > counts)
+                                    type (second (first sorted))]
+                                (get @type-map type)))}
                 res (gql.GraphQLUnionType. (clj->js descriptor))]
             (swap! type-map assoc typename res)
             (swap! unions conj typename)
@@ -125,7 +134,8 @@
                                (fn [ast-js]
                                  (let [ast (js->clj ast-js :keywordize-keys true)
                                        fields (set (map (comp :value :name) (:fields ast)))
-                                       fld-map (map (fn [r] [(set (r 0)) ((r 1) 0)]) @fields-map)
+                                       type-fields (filter (fn [f] (constituent-set ((f 1) 0))) @fields-map)
+                                       fld-map (map (fn [r] [(set (r 0)) ((r 1) 0)]) type-fields)
                                        matches (filter (fn [f] (subset? fields (f 0))) fld-map)
                                        _ (assert (= 1 (count matches))
                                                  "Union input field names must uniquely identify intended target.")
