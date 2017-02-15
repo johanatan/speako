@@ -1,4 +1,4 @@
-(defproject speako "0.10.34"
+(defproject speako "0.10.35"
   :description "GraphQL Schema Language Compiler"
   :url "https://github.com/johanatan/speako"
   :license "none"
