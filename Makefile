@@ -15,7 +15,7 @@ build:
 	echo 'module.exports = speako.core;' >> out/prod/speako.js
 
 ONCE_FLAG=once
-test:
+test: clean
 	mkdir -p out/test/resources
 	cp resources/* out/test/resources
 	lein doo node test $(ONCE_FLAG)
