@@ -8,6 +8,7 @@
                  [com.lucasbradstreet/cljs-uuid-utils "1.0.2"]
                  [sqlingvo.node "0.1.0"]
                  [aysylu/loom "1.0.0"]
+                 [funcool/promesa "1.8.0"]
                  [instaparse "1.4.4"]]
   :npm {:dependencies [[source-map-support "0.2.8"]
                        [pg "5.0.0"]
