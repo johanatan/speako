@@ -4,13 +4,14 @@
 (ns speako.backend
   (:require-macros [cljs.core.async.macros :refer [go]])
   (:require [speako.schema :as schema]
-            [speako.common :refer [format]]
+            [speako.common :refer [format pluralize]]
             [loom.graph :as graph]
             [loom.attr :as attr]
             [sqlingvo.core :as sql]
             [sqlingvo.node :as db :refer-macros [<? <!?]]
             [cljs.core.async :as async]
             [promesa.core :as p :refer-macros [alet]]
+            [camel-snake-kebab.core :refer [->PascalCase ->camelCase]]
             [clojure.set]))
 
 (defn- consume-types []
@@ -61,18 +62,11 @@
                 (sql/from :information_schema.columns)
                 (sql/where '(= :table_name table-name))))))
 
-(defn- lower-case-first [s]
-  (clojure.string/join "" [(.toLowerCase (.charAt s 0)) (.slice s 1)]))
-
-(defn- upper-case-first [s]
-  (clojure.string/join "" [(.toUpperCase (.charAt s 0)) (.slice s 1)]))
-
 (defn- tables-exist? [db graph]
   (p/alet [tables (p/await (get-table-names db))
-           expected (map (comp lower-case-first name) (graph/nodes graph))
+           expected (map #(-> % name pluralize ->camelCase) (graph/nodes graph))
            remaining (clojure.set/difference (set expected) (set tables))]
           (when (not-empty remaining)
-            (js/console.error (format "ERROR: Backing tables not found for: %s"
-                                      (map upper-case-first (into [] remaining)))))
+            (js/console.error (format "ERROR: Backing tables not found: %s"
+                                      (into [] remaining))))
           (empty? remaining)))
-
