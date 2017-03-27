@@ -4,11 +4,13 @@
   (:require [goog.string.format]
             [cljs.pprint :as pprint]
             [clojure.string :as string]
-            [cljs.nodejs :as node]))
+            [cljs.nodejs :as node]
+            [camel-snake-kebab.core :refer [->kebab-case ->PascalCase]]))
 
 (enable-console-print!)
 
 (def fs (node/require "fs"))
+(def pluralizer (node/require "pluralize"))
 
 (defn format
   "Formats a string using goog.string.format."
@@ -33,4 +35,14 @@
 
 (defn single [col] (assert (= 1 (count col))) (first col))
 
-(defn pluralize [noun] (format "%s%s" noun (if (goog.string/endsWith noun "s") "es" "s")))
+(defn pluralize [noun]
+  (let [kebabbed (->kebab-case noun)
+        splitted (string/split kebabbed #"-")
+        transforms (concat (repeat (- (count splitted) 1) identity) [pluralizer])
+        zipped (map vector splitted transforms)
+        transformed (map #((%1 1) (%1 0)) zipped)
+        joined (string/join "-" transformed)
+        pluralized (->PascalCase joined)]
+    (if (= pluralized noun)
+      (format "%ses" pluralized) ; unconventional handling of uncountables; tack on "es"
+      pluralized)))

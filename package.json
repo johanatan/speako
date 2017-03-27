@@ -16,6 +16,7 @@
     "npm": ">= 1.1.2",
     "pg": "5.0.0",
     "pg-native": "1.10.0",
+    "pluralize": "4.0.0",
     "graphql": "0.8.2",
     "source-map-support": "0.2.8",
     "graphql-union-input-type": "0.2.2"

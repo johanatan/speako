@@ -9,10 +9,12 @@
                  [sqlingvo.node "0.1.0"]
                  [aysylu/loom "1.0.0"]
                  [funcool/promesa "1.8.0"]
+                 [camel-snake-kebab "0.4.0"]
                  [instaparse "1.4.4"]]
   :npm {:dependencies [[source-map-support "0.2.8"]
                        [pg "5.0.0"]
                        [pg-native "1.10.0"]
+                       [pluralize "4.0.0"]
                        [graphql-union-input-type "0.2.2"]
                        [graphql "0.8.2"]]}
   :plugins [[lein-npm "0.6.2"]
