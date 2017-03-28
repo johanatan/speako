@@ -66,10 +66,12 @@
    "Boolean" {:scalar "boolean" :array "_bool"}
    "String" {:scalar "character varying" :array "_varchar"}
    "Float" {:scalar "double precision" :array "_float8"}
+   "Timestamp" {:scalar "timestamp without time zone" :array nil}
    "Int" {:scalar "integer" :array "_int4"}})
 
 (def ^:private db-scalar-types-map (m/fmap :scalar db-types-map))
 (def ^:private db-array-types-map (into {} (map #(do [(%1 :array) (%1 :scalar)]) (vals db-types-map))))
+(def ^:private scalar-types (set (keys db-types-map)))
 
 (defn- get-columns-for-table [table-name db]
   (let [xfm-type #(condp = %1 "ARRAY" (format "%s[]" (db-array-types-map %2)) %1)]
@@ -91,7 +93,7 @@
            expected (map #(-> % name pluralize ->camelCase) (entities graph))
            remaining (clojure.set/difference (set expected) (set tables))]
           (when (not-empty remaining)
-            (js/console.error (format "ERROR: Backing tables not found: %s" (into [] remaining))))
+            (js/console.error (format "ERROR: Backing tables missing: %s" (into [] remaining))))
           (empty? remaining)))
 
 (defn- pprint-query [db query-fn]
@@ -100,3 +102,29 @@
                   res (p/await (query-fn db))
                   _ (db/disconnect db)]
                  res)))
+
+(defn- scalar-column-exists? [columns-meta [name type list? required?]]
+  (let [column-meta (columns-meta name)
+        expected-type (format "%s%s" (db-scalar-types-map type) (if list? "[]" ""))]
+    (and column-meta
+         (= expected-type (:type column-meta))
+         (= (if required? "NO" "YES") (:is-nullable? column-meta)))))
+
+(defn- scalar-columns-exist?
+  ([table-name fields columns-meta db]
+   (let [scalar-fields (filter #(scalar-types (% 1)) fields)
+         built-in-fields [["createdAt" "Timestamp" false true]
+                          ["updatedAt" "Timestamp" false false]]
+         res (map #(do [%1 (scalar-column-exists? columns-meta %1)]) (concat scalar-fields built-in-fields))
+         failures (remove second res)]
+     (when (not-empty failures)
+       (js/console.error (format "ERROR: Backing columms missing or misconfigured for table %s: %s"
+                                 table-name (map #(-> % first first) failures))))
+     (empty? failures)))
+  ([parsed db]
+   (p/alet [entities (:objects parsed)
+            promises (map #(p/alet [table-name (->camelCase (pluralize (name (%1 0))))
+                                    columns-meta (p/await (get-columns-for-table table-name db))]
+                                   (scalar-columns-exist? table-name (%1 1) columns-meta db)) entities)
+            res (p/await (p/all promises))]
+           (every? identity res))))
