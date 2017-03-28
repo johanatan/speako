@@ -24,3 +24,7 @@
           resolver {:query (fn [typename predicate]
                              (is (and (= typename "Color") (= predicate (js/JSON.stringify #js {"all" true})))) nil)}]
       (call-graphql comparator (file-schema resolver) "{ Colors { id name } }"))))
+
+(deftest reserved-entities-forbidden
+  (is (thrown-with-msg? js/Error #"Timestamp is a reserved entity provided by speako\."
+                        (speako.core/get-schema {} "type Timestamp { id: ID! }"))))

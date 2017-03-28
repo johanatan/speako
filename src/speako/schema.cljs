@@ -49,7 +49,9 @@
   (assert (= {:tag :TYPE_KEYWORD :content (list "type")} (first parsed)))
   (let [[_ typename-comp & field-comps] parsed
         typename (extract-single-content typename-comp)
-        field-descriptors (map extract-field-descriptors field-comps)] [typename field-descriptors]))
+        field-descriptors (map extract-field-descriptors field-comps)]
+    (assert (not= typename "Timestamp") "Timestamp is a reserved entity provided by speako.")
+    [typename field-descriptors]))
 
 (defn- get-union-descriptors [parsed]
   (assert (= {:tag :UNION_KEYWORD :content (list "union")} (first parsed)))
