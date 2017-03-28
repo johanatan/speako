@@ -12,6 +12,9 @@
             [cljs.core.async :as async]
             [promesa.core :as p :refer-macros [alet]]
             [camel-snake-kebab.core :refer [->PascalCase ->camelCase]]
+            [cljs.pprint :refer [pprint]]
+            [cats.core :as m :include-macros true]
+            [cats.builtin]
             [clojure.set]))
 
 (defn- consume-types []
@@ -42,12 +45,14 @@
         with-union-attrs (attr/add-attr-to-nodes with-edge-attrs :union? true unions)]
     with-union-attrs))
 
-(defn- chan->promise [channel]
-  (p/promise
-   (fn [resolve reject]
-     (go
-       (let [res (<? channel)]
-         (resolve res))))))
+(defn- chan->promise
+  ([channel] (chan->promise identity channel))
+  ([xfm channel]
+   (p/promise
+    (fn [resolve reject]
+      (go
+        (let [res (<? channel)]
+          (resolve (xfm res))))))))
 
 (defn- get-table-names [db]
   (chan->promise
@@ -56,22 +61,42 @@
                 (sql/select db [:table_name]
                             (sql/from :information_schema.tables)
                             (sql/where '(= :table_schema "public"))))])))
+(def ^:private db-types-map
+  {"ID" {:scalar "integer" :array "_int4"}
+   "Boolean" {:scalar "boolean" :array "_bool"}
+   "String" {:scalar "character varying" :array "_varchar"}
+   "Float" {:scalar "double precision" :array "_float8"}
+   "Int" {:scalar "integer" :array "_int4"}})
 
-(defn- get-columns-for-table [db table-name]
-  (chan->promise
-   (db/execute
-    (sql/select db [:column_name :data_type]
-                (sql/from :information_schema.columns)
-                (sql/where '(= :table_name table-name))))))
+(def ^:private db-scalar-types-map (m/fmap :scalar db-types-map))
+(def ^:private db-array-types-map (into {} (map #(do [(%1 :array) (%1 :scalar)]) (vals db-types-map))))
+
+(defn- get-columns-for-table [table-name db]
+  (let [xfm-type #(condp = %1 "ARRAY" (format "%s[]" (db-array-types-map %2)) %1)]
+    (chan->promise
+     #(into {} %)
+     (async/map
+      #(map (fn [r] [(:column_name r) {:type (xfm-type (:data_type r) (:udt_name r))
+                                       :is-nullable? (:is_nullable r)}]) %1)
+      [(db/execute (sql/select db [:column_name :data_type :is_nullable :udt_name]
+                               (sql/from :information_schema.columns)
+                               (sql/where `(= :table_name ~table-name))))]))))
 
 (defn- entities [graph]
   (let [nodes (graph/nodes graph)]
     (remove #(attr/attr graph % :union?) nodes)))
 
-(defn- tables-exist? [db graph]
+(defn- tables-exist? [graph db]
   (p/alet [tables (p/await (get-table-names db))
            expected (map #(-> % name pluralize ->camelCase) (entities graph))
            remaining (clojure.set/difference (set expected) (set tables))]
           (when (not-empty remaining)
             (js/console.error (format "ERROR: Backing tables not found: %s" (into [] remaining))))
           (empty? remaining)))
+
+(defn- pprint-query [db query-fn]
+  (p/map pprint
+         (p/alet [db (p/await (chan->promise (db/connect db)))
+                  res (p/await (query-fn db))
+                  _ (db/disconnect db)]
+                 res)))

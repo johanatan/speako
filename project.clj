@@ -10,6 +10,7 @@
                  [aysylu/loom "1.0.0"]
                  [funcool/promesa "1.8.0"]
                  [camel-snake-kebab "0.4.0"]
+                 [funcool/cats "2.0.0"]
                  [instaparse "1.4.4"]]
   :npm {:dependencies [[source-map-support "0.2.8"]
                        [pg "5.0.0"]
