@@ -37,8 +37,10 @@
         object-edges (partial object-edges (clojure.set/union nodes unions))
         edges (remove empty? (mapcat object-edges (parsed :objects)))
         g (apply graph/digraph (concat (map (partial take 2) edges) nodes))
-        attrs (mapcat #(let [edge (take 2 %1)] [[edge :list? (%1 2)] [edge :required? (%1 3)]]) edges)]
-    (reduce #(attr/add-attr-to-edges %1 (%2 1) (%2 2) [(%2 0)]) g attrs)))
+        attrs (mapcat #(let [edge (take 2 %1)] [[edge :list? (%1 2)] [edge :required? (%1 3)]]) edges)
+        with-edge-attrs (reduce #(attr/add-attr-to-edges %1 (%2 1) (%2 2) [(%2 0)]) g attrs)
+        with-union-attrs (attr/add-attr-to-nodes with-edge-attrs :union? true unions)]
+    with-union-attrs))
 
 (defn- chan->promise [channel]
   (p/promise
@@ -62,11 +64,14 @@
                 (sql/from :information_schema.columns)
                 (sql/where '(= :table_name table-name))))))
 
+(defn- entities [graph]
+  (let [nodes (graph/nodes graph)]
+    (remove #(attr/attr graph % :union?) nodes)))
+
 (defn- tables-exist? [db graph]
   (p/alet [tables (p/await (get-table-names db))
-           expected (map #(-> % name pluralize ->camelCase) (graph/nodes graph))
+           expected (map #(-> % name pluralize ->camelCase) (entities graph))
            remaining (clojure.set/difference (set expected) (set tables))]
           (when (not-empty remaining)
-            (js/console.error (format "ERROR: Backing tables not found: %s"
-                                      (into [] remaining))))
+            (js/console.error (format "ERROR: Backing tables not found: %s" (into [] remaining))))
           (empty? remaining)))
