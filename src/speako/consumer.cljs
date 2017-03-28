@@ -10,6 +10,7 @@
 
 (def ^:private gql (node/require "graphql"))
 (def ^:private UnionInputType (node/require "graphql-union-input-type"))
+(def ^:private CustomGraphQLDateType (node/require "graphql-custom-datetype"))
 
 (defprotocol DataResolver
   (query [this typename predicate])
@@ -44,7 +45,11 @@
                     composed (comp not-null-comb list-comb)
                     res (composed typ)] res))
             (get-type [typ is-list? is-not-null?]
-              (modify-type (get @type-map typ) is-list? is-not-null?))
+              (let [type
+                    (if (= typ "Timestamp")
+                      CustomGraphQLDateType
+                      (get @type-map typ))]
+                (modify-type type is-list? is-not-null?)))
             (get-input-type [typ is-list? is-not-null?]
               (if (contains? (set (keys @inputs-map)) typ)
                 (modify-type (@inputs-map typ) is-list? is-not-null?)
@@ -52,8 +57,12 @@
             (get-resolver [datatype is-list? fieldname]
               (if (not (is-primitive? datatype))
                 {:resolve (fn [parent]
-                            (if is-list?
+                            (cond
+                              (= datatype "Timestamp")
+                              (clj->js (aget parent fieldname))
+                              is-list?
                               (clj->js (map (fn [id] (get-by-id datatype id)) (aget parent fieldname)))
+                              :else
                               (get-by-id datatype (aget parent fieldname))))}))
             (get-field-spec [[fieldname datatype is-list? is-not-null?]]
               (let [typ (get-type datatype is-list? is-not-null?)

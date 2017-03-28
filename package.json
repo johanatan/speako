@@ -19,6 +19,7 @@
     "pluralize": "4.0.0",
     "graphql": "0.8.2",
     "source-map-support": "0.2.8",
+    "graphql-custom-datetype": "0.4.0",
     "graphql-union-input-type": "0.2.2"
   },
   "devDependencies": {

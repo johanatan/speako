@@ -3,6 +3,7 @@
 (ns speako.test.core
   (:require [cljs.test :refer-macros [deftest is async]]
             [cljs.nodejs :as node]
+            [speako.common :refer [format]]
             [speako.core]))
 
 (def gql (node/require "graphql"))
@@ -22,9 +23,25 @@
     (let [expected {"data" {"Colors" nil}}
           comparator (fn [s] (is (= expected (js->clj (.parse js/JSON s)))) (done))
           resolver {:query (fn [typename predicate]
-                             (is (and (= typename "Color") (= predicate (js/JSON.stringify #js {"all" true})))) nil)}]
+                             (is (and (= typename "Color")
+                                      (= predicate (js/JSON.stringify #js {"all" true})))) nil)}]
       (call-graphql comparator (file-schema resolver) "{ Colors { id name } }"))))
 
 (deftest reserved-entities-forbidden
   (is (thrown-with-msg? js/Error #"Timestamp is a reserved entity provided by speako\."
                         (speako.core/get-schema {} "type Timestamp { id: ID! }"))))
+
+(deftest simple-timestamp
+  (async
+   done
+   (let [expected [(js/Date.) (js/Date.)]
+         comparator (fn [a]
+                      (is (= (js->clj (.parse js/JSON a))
+                             {"data" {"As" [{"ts" (map #(.toISOString %) expected)}]}})) (done))
+         resolver {:query (fn [typename predicate]
+                            (is (= typename "A"))
+                            (clj->js [{:id "1" :ts expected}]))}]
+     (call-graphql
+      comparator
+      (speako.core/get-schema resolver "type A { id: ID! ts: [Timestamp]! }")
+      "{ As { ts }}"))))

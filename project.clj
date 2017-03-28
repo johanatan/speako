@@ -17,6 +17,7 @@
                        [pg-native "1.10.0"]
                        [pluralize "4.0.0"]
                        [graphql-union-input-type "0.2.2"]
+                       [graphql-custom-datetype "0.4.0"]
                        [graphql "0.8.2"]]}
   :plugins [[lein-npm "0.6.2"]
             [lein-doo "0.1.7"]
