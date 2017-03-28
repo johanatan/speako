@@ -44,5 +44,5 @@
         joined (string/join "-" transformed)
         pluralized (->PascalCase joined)]
     (if (= pluralized noun)
-      (format "%ses" pluralized) ; unconventional handling of uncountables; tack on "es"
+      (format "All%s" pluralized)
       pluralized)))
