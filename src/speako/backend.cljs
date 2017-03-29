@@ -11,7 +11,7 @@
             [sqlingvo.node :as db :refer-macros [<? <!?]]
             [cljs.core.async :as async]
             [promesa.core :as p :refer-macros [alet]]
-            [camel-snake-kebab.core :refer [->PascalCase ->camelCase]]
+            [camel-snake-kebab.core :refer [->PascalCase ->camelCase ->kebab-case]]
             [cljs.pprint :refer [pprint]]
             [cats.core :as m :include-macros true]
             [cats.builtin]
@@ -54,13 +54,18 @@
         (let [res (<? channel)]
           (resolve (xfm res))))))))
 
+(defn promisify
+  ([query] (promisify identity query))
+  ([inner-xfm query] (promisify identity inner-xfm query))
+  ([outer-xfm inner-xfm query]
+   (chan->promise outer-xfm (async/map inner-xfm [(db/execute (query))]))))
+
 (defn- get-table-names [db]
-  (chan->promise
-   (async/map #(map :table_name %1)
-              [(db/execute
-                (sql/select db [:table_name]
-                            (sql/from :information_schema.tables)
-                            (sql/where '(= :table_schema "public"))))])))
+  (promisify #(map :table_name %1)
+             #(sql/select db [:table_name]
+                          (sql/from :information_schema.tables)
+                          (sql/where '(= :table_schema "public")))))
+
 (def ^:private db-types-map
   {"ID" {:scalar "integer" :array "_int4"}
    "Boolean" {:scalar "boolean" :array "_bool"}
@@ -73,16 +78,15 @@
 (def ^:private db-array-types-map (into {} (map #(do [(%1 :array) (%1 :scalar)]) (vals db-types-map))))
 (def ^:private scalar-types (set (keys db-types-map)))
 
-(defn- get-columns-for-table [table-name db]
+(defn- table->columns [table-name db]
   (let [xfm-type #(condp = %1 "ARRAY" (format "%s[]" (db-array-types-map %2)) %1)]
-    (chan->promise
+    (promisify
      #(into {} %)
-     (async/map
-      #(map (fn [r] [(:column_name r) {:type (xfm-type (:data_type r) (:udt_name r))
-                                       :is-nullable? (:is_nullable r)}]) %1)
-      [(db/execute (sql/select db [:column_name :data_type :is_nullable :udt_name]
-                               (sql/from :information_schema.columns)
-                               (sql/where `(= :table_name ~table-name))))]))))
+     #(map (fn [r] [(:column_name r) {:type (xfm-type (:data_type r) (:udt_name r))
+                                      :is-nullable? (:is_nullable r)}]) %1)
+     #(sql/select db [:column_name :data_type :is_nullable :udt_name]
+                  (sql/from :information_schema.columns)
+                  (sql/where `(= :table_name ~table-name))))))
 
 (defn- entities [graph]
   (let [nodes (graph/nodes graph)]
@@ -124,7 +128,21 @@
   ([parsed db]
    (p/alet [entities (:objects parsed)
             promises (map #(p/alet [table-name (->camelCase (pluralize (name (%1 0))))
-                                    columns-meta (p/await (get-columns-for-table table-name db))]
+                                    columns-meta (p/await (table->columns table-name db))]
                                    (scalar-columns-exist? table-name (%1 1) columns-meta db)) entities)
             res (p/await (p/all promises))]
            (every? identity res))))
+
+(defn- table->foreign-keys [table-name db]
+  (promisify
+   #(map (fn [r] (clojure.set/rename-keys r (into {} (map (fn [k] [k (->kebab-case k)]) (keys r))))) %1)
+   #(sql/select db [:tc.constraint_name :tc.table_name :kcu.column_name
+                    (sql/as :ccu.table_name :foreign_table_name)
+                    (sql/as :ccu.column_name :foreign_column_name)]
+                (sql/from (sql/as :information_schema.table_constraints :tc))
+                (sql/join (sql/as :information_schema.key_column_usage :kcu)
+                          '(on (= :tc.constraint_name :kcu.constraint_name)))
+                (sql/join (sql/as :information_schema.constraint_column_usage :ccu)
+                          '(on (= :ccu.constraint_name :tc.constraint_name)))
+                (sql/where `(and (= :constraint_type "FOREIGN KEY") (= :tc.table_name ~table-name))))))
+
