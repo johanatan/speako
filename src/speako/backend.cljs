@@ -114,6 +114,9 @@
          (= expected-type (:type column-meta))
          (= (if required? "NO" "YES") (:is-nullable? column-meta)))))
 
+(defn- entity->table-name [entity]
+  (-> entity name pluralize ->camelCase))
+
 (defn- scalar-columns-exist?
   ([table-name fields columns-meta db]
    (let [scalar-fields (filter #(scalar-types (% 1)) fields)
@@ -127,9 +130,11 @@
      (empty? failures)))
   ([parsed db]
    (p/alet [entities (:objects parsed)
-            promises (map #(p/alet [table-name (->camelCase (pluralize (name (%1 0))))
-                                    columns-meta (p/await (table->columns table-name db))]
-                                   (scalar-columns-exist? table-name (%1 1) columns-meta db)) entities)
+            promises (map
+                      (fn [[entity fields]]
+                        (p/alet [table-name (entity->table-name entity)
+                                 columns-meta (p/await (table->columns table-name db))]
+                                (scalar-columns-exist? table-name fields columns-meta db))) entities)
             res (p/await (p/all promises))]
            (every? identity res))))
 
@@ -146,3 +151,9 @@
                           '(on (= :ccu.constraint_name :tc.constraint_name)))
                 (sql/where `(and (= :constraint_type "FOREIGN KEY") (= :tc.table_name ~table-name))))))
 
+(defn- extract-relations [graph db]
+  (p/alet [entities (entities graph)
+           table-names (map #(do [(entity->table-name %1) %1]) entities)
+           promises (map (fn [[t e]] (p/map #(do [e %1]) (table->foreign-keys t db))) table-names)
+           res (p/await (p/all promises))]
+          (into {} res)))
