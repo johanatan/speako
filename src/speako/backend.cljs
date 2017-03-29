@@ -157,3 +157,25 @@
            promises (map (fn [[t e]] (p/map #(do [e %1]) (table->foreign-keys t db))) table-names)
            res (p/await (p/all promises))]
           (into {} res)))
+
+(defn- unique-edges [graph]
+  (map vec (distinct (map #(if (every? (partial = (first %1)) %1) %1 (set %1)) (graph/edges g)))))
+
+(defrecord Multiplicity [participant multiplicity required?])
+(defrecord Cardinality [left right])
+
+(defn- cardinality [graph edge]
+  (let [fwd-attrs (attr/attrs graph edge)
+        reverse-attrs (attr/attrs graph (vec (reverse edge)))
+        mult #(cond (nil? %1) :zero (:list? %1) :many :else :one)
+        req? #(if (nil? %1) nil (:required? %1))]
+    (cond
+      (and (nil? fwd-attrs) (nil? reverse-attrs))
+      (throw (js/Error. (format "Internal error: no attrs for edge: %s" edge)))
+      :else (Cardinality.
+             (Multiplicity. (edge 0) (mult fwd-attrs) (req? fwd-attrs))
+             (Multiplicity. (edge 1) (mult reverse-attrs) (req? reverse-attrs))))))
+
+(defn- cardinalities [graph]
+  (let [edges (unique-edges graph)]
+    (map (partial cardinality graph) edges)))
