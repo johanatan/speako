@@ -16,6 +16,10 @@
 
 (defn file-schema [resolver] (speako.core/get-schema resolver "./resources/schema.gql"))
 
+(defn str-schema
+  ([schema-str] (str-schema {} schema-str))
+  ([resolver schema-str] (speako.core/get-schema resolver schema-str)))
+
 (deftest loads-schema-from-file (is (file-schema {})))
 
 (deftest simple-select
@@ -29,7 +33,7 @@
 
 (deftest reserved-entities-forbidden
   (is (thrown-with-msg? js/Error #"Timestamp is a reserved entity provided by speako\."
-                        (speako.core/get-schema {} "type Timestamp { id: ID! }"))))
+                        (str-schema "type Timestamp { id: ID! }"))))
 
 (deftest simple-timestamp
   (async
@@ -43,5 +47,9 @@
                             (clj->js [{:id "1" :ts expected}]))}]
      (call-graphql
       comparator
-      (speako.core/get-schema resolver "type A { id: ID! ts: [Timestamp]! }")
+      (str-schema resolver "type A { id: ID! ts: [Timestamp]! }")
       "{ As { ts }}"))))
+
+(deftest multiple-relations-of-same-type-forbidden
+  (is (thrown-with-msg? js/Error #"Type \'A\' contains duplicate links to types: \(\"B\"\)."
+                        (str-schema "type A { id: ID! b1: B b2: B } type B { id: ID! }"))))

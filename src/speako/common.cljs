@@ -46,3 +46,6 @@
     (if (= pluralized noun)
       (format "All%s" pluralized)
       pluralized)))
+
+(defn duplicates [seq]
+  (map key (remove (comp #{1} val) (frequencies seq))))

@@ -25,6 +25,8 @@
    "Float"   gql.GraphQLFloat
    "Int"     gql.GraphQLInt})
 
+(def ^:private primitives-set (set (keys primitive-types)))
+
 (defn GraphQLConsumer [data-resolver]
   (let [type-map (atom primitive-types)
         inputs-map (atom {})
@@ -38,7 +40,7 @@
             (is-enum? [typ]
               (contains? (set (keys @enums)) typ))
             (is-primitive? [typ]
-              (or (is-enum? typ) (contains? (set (keys primitive-types)) typ)))
+              (or (is-enum? typ) (primitives-set typ)))
             (modify-type [typ is-list? is-not-null?]
               (let [list-comb (if is-list? #(new gql.GraphQLList %) identity)
                     not-null-comb (if is-not-null? #(new gql.GraphQLNonNull %) identity)
@@ -104,7 +106,9 @@
                 fieldnames (map first field-descriptors)
                 merged (delay (apply merge field-specs))
                 descriptors {:name typename :fields #(clj->js @merged)}
-                res (gql.GraphQLObjectType. (clj->js descriptors))]
+                res (gql.GraphQLObjectType. (clj->js descriptors))
+                non-primitives (remove is-primitive? (map #(%1 1) field-descriptors))
+                duplicates (common/duplicates non-primitives)]
             (assert (not (contains? @type-map typename))
                     (common/format "Duplicate type name: %s" typename))
             (assert (not (contains? @fields-map fieldnames))
@@ -112,6 +116,9 @@
             (assert (contains? (set fieldnames) "id")
                     (common/format "Type must contain an 'id' field. Fields: %s"
                                    (common/pprint-str fieldnames)))
+            (assert (empty? duplicates)
+                    (common/format "Type '%s' contains duplicate links to types: %s."
+                                   typename duplicates))
             (swap! type-map assoc typename res)
             (swap! fields-map assoc fieldnames [typename (map rest field-descriptors)])
             (js/console.log (common/format "Created object type thunk: %s" typename))
@@ -202,7 +209,7 @@
                     (let [descriptor {:name name :fields (apply merge (flatten fields))}
                           res (gql.GraphQLObjectType. (clj->js descriptor))]
                       (common/dbg-print "Created GraphQLObjectType: %s" descriptor) res))]
-            (let [types (set/difference (set (keys @type-map)) (set (keys primitive-types)) (set (keys @enums)))]
+            (let [types (set/difference (set (keys @type-map)) primitives-set (set (keys @enums)))]
               (reset! inputs-map (into {} (for [[k v] @inputs-map] [k (v)])))
               (gql.GraphQLSchema.
                (clj->js
