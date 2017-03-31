@@ -33,7 +33,7 @@
         (common/dbg-print "speako: delete: typename: %s, id: %s" typename (stringify id))
         (delete typename id)))))
 
-(defn ^:export get-schema [config schema-filename-or-contents]
+(defn consume-schema [config schema-filename-or-contents]
   (let [is-js? (object? config)
         config-map (if is-js? (walk/keywordize-keys (js->clj config)) config)
         resolver-methods (select-keys config-map [:query :create :modify :delete])
@@ -41,7 +41,10 @@
         _ (assert (vector? user-consumers) "User supplied consumers must be of type vector.")
         consumer (GraphQLConsumer (get-data-resolver is-js? config-map))
         consumers (into [consumer] user-consumers)]
-    (first (second (apply (partial schema/load-schema schema-filename-or-contents) consumers)))))
+    (apply (partial schema/load-schema schema-filename-or-contents) consumers)))
+
+(defn ^:export get-schema [config schema-filename-or-contents]
+  (-> (consume-schema config schema-filename-or-contents) second first))
 
 (defn ^:export set-debug [debug?]
   (assert (boolean? debug?))

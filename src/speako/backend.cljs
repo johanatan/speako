@@ -32,7 +32,7 @@
   (remove nil? (map (fn [[name type list? required?]]
                       (let [typ (keyword type)]
                         (when (nodes typ)
-                          [node typ list? required?]))) fields)))
+                          [node typ name list? required?]))) fields)))
 
 (defn- construct-graph [parsed]
   (let [nodes (set (keys (parsed :objects)))
@@ -40,7 +40,7 @@
         object-edges (partial object-edges (clojure.set/union nodes unions))
         edges (remove empty? (mapcat object-edges (parsed :objects)))
         g (apply graph/digraph (concat (map (partial take 2) edges) nodes))
-        attrs (mapcat #(let [edge (take 2 %1)] [[edge :list? (%1 2)] [edge :required? (%1 3)]]) edges)
+        attrs (map #(let [edge (take 2 %1)] [edge (%1 2) {:list? (%1 3) :required? (%1 4)}]) edges)
         with-edge-attrs (reduce #(attr/add-attr-to-edges %1 (%2 1) (%2 2) [(%2 0)]) g attrs)
         with-union-attrs (attr/add-attr-to-nodes with-edge-attrs :union? true unions)]
     with-union-attrs))
@@ -159,23 +159,30 @@
           (into {} res)))
 
 (defn- unique-edges [graph]
-  (map vec (distinct (map #(if (every? (partial = (first %1)) %1) %1 (set %1)) (graph/edges g)))))
+  (map vec (distinct (map #(if (every? (partial = (first %1)) %1) %1 (set %1)) (graph/edges graph)))))
 
-(defrecord Multiplicity [participant multiplicity required?])
+(defrecord Multiplicity [entity field multiplicity required?])
 (defrecord Cardinality [left right])
 
-(defn- cardinality [graph edge]
+(defn- construct-cardinality [left right fwd-attrs reverse-attrs]
+  (let [mult #(cond (nil? %1) :zero (:list? %1) :many :else :one)
+        req? #(if (nil? %1) nil (:required? %1))]
+    (Cardinality.
+     (Multiplicity. left (:name fwd-attrs) (mult fwd-attrs) (req? fwd-attrs))
+     (Multiplicity. right (:name reverse-attrs) (mult reverse-attrs) (req? reverse-attrs)))))
+
+(defn- field-cardinalities [graph edge]
   (let [fwd-attrs (attr/attrs graph edge)
         reverse-attrs (attr/attrs graph (vec (reverse edge)))
-        mult #(cond (nil? %1) :zero (:list? %1) :many :else :one)
-        req? #(if (nil? %1) nil (:required? %1))]
+        constructor (partial construct-cardinality (edge 0) (edge 1))
+        attr-map #(if (nil? %1) nil (merge (%1 1) {:name (%1 0)}))]
     (cond
       (and (nil? fwd-attrs) (nil? reverse-attrs))
       (throw (js/Error. (format "Internal error: no attrs for edge: %s" edge)))
-      :else (Cardinality.
-             (Multiplicity. (edge 0) (mult fwd-attrs) (req? fwd-attrs))
-             (Multiplicity. (edge 1) (mult reverse-attrs) (req? reverse-attrs))))))
+      :else
+      (map #(construct-cardinality (edge 0) (edge 1) (attr-map (%1 0)) (attr-map (%1 1)))
+           (map vector fwd-attrs (or reverse-attrs (repeat (count fwd-attrs) nil)))))))
 
 (defn- cardinalities [graph]
   (let [edges (unique-edges graph)]
-    (map (partial cardinality graph) edges)))
+    (mapcat (partial field-cardinalities graph) edges)))
