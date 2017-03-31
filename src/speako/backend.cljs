@@ -165,17 +165,16 @@
 (defrecord Cardinality [left right])
 
 (defn- construct-cardinality [left right fwd-attrs reverse-attrs]
-  (let [mult #(cond (nil? %1) :zero (:list? %1) :many :else :one)
-        req? #(if (nil? %1) nil (:required? %1))]
+  (let [mult #(cond (nil? %1) :zero (:list? %1) :many :else :one)]
     (Cardinality.
-     (Multiplicity. left (:name fwd-attrs) (mult fwd-attrs) (req? fwd-attrs))
-     (Multiplicity. right (:name reverse-attrs) (mult reverse-attrs) (req? reverse-attrs)))))
+     (Multiplicity. left (:name fwd-attrs) (mult fwd-attrs) (:required? fwd-attrs))
+     (Multiplicity. right (:name reverse-attrs) (mult reverse-attrs) (:required? reverse-attrs)))))
 
 (defn- field-cardinalities [graph edge]
   (let [fwd-attrs (attr/attrs graph edge)
         reverse-attrs (attr/attrs graph (vec (reverse edge)))
         constructor (partial construct-cardinality (edge 0) (edge 1))
-        attr-map #(if (nil? %1) nil (merge (%1 1) {:name (%1 0)}))]
+        attr-map #(if %1 (merge (%1 1) {:name (%1 0)}))]
     (cond
       (and (nil? fwd-attrs) (nil? reverse-attrs))
       (throw (js/Error. (format "Internal error: no attrs for edge: %s" edge)))
