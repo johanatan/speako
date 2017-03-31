@@ -99,16 +99,26 @@
                         (clj->js {:name (common/format "%s%s" (input-object-typename (.-name object-type))
                                                         (gensym))
                                   :fields fields}))]
-                (reset! cell res)))]
+                (reset! cell res)))
+            (extract-field-meta [typename fields]
+              (first (filter (fn [[k v]] (= (v 0) typename)) fields)))
+            (check-duplicates [typename duplicates]
+              (let [duplicate-links
+                    (map #(do [%1 (map first (-> (extract-field-meta %1 @fields-map) second second))]) duplicates)
+                    with-reverse-link
+                    (filter #((set (second %1)) typename) duplicate-links)]
+                (assert (empty? with-reverse-link)
+                        (common/format "Type '%s' involves duplicate (bidirectional) links to types: %s."
+                                       typename (map first with-reverse-link)))))]
       (reify schema/TypeConsumer
         (consume-object [_ typename field-descriptors]
           (let [field-specs (map get-field-spec field-descriptors)
                 fieldnames (map first field-descriptors)
-                merged (delay (apply merge field-specs))
-                descriptors {:name typename :fields #(clj->js @merged)}
-                res (gql.GraphQLObjectType. (clj->js descriptors))
                 non-primitives (remove is-primitive? (map #(%1 1) field-descriptors))
-                duplicates (common/duplicates non-primitives)]
+                duplicates (common/duplicates non-primitives)
+                merged (delay (do (check-duplicates typename duplicates) (apply merge field-specs)))
+                descriptors {:name typename :fields #(clj->js @merged)}
+                res (gql.GraphQLObjectType. (clj->js descriptors))]
             (assert (not (contains? @type-map typename))
                     (common/format "Duplicate type name: %s" typename))
             (assert (not (contains? @fields-map fieldnames))
@@ -116,9 +126,6 @@
             (assert (contains? (set fieldnames) "id")
                     (common/format "Type must contain an 'id' field. Fields: %s"
                                    (common/pprint-str fieldnames)))
-            (assert (empty? duplicates)
-                    (common/format "Type '%s' contains duplicate links to types: %s."
-                                   typename duplicates))
             (swap! type-map assoc typename res)
             (swap! fields-map assoc fieldnames [typename (map rest field-descriptors)])
             (js/console.log (common/format "Created object type thunk: %s" typename))
@@ -167,7 +174,7 @@
             [res descriptor]))
         (finished [_]
           (letfn [(get-query-descriptors [typ]
-                    (let [[field-names field-meta] (first (filter (fn [[k v]] (= (v 0) typ)) @fields-map))
+                    (let [[field-names field-meta] (extract-field-meta typ @fields-map)
                           zipped (map vector field-names (second field-meta))
                           with-types (map (fn [[k v]] [k (get-input-type (nth v 0) (nth v 1) false)]) zipped)
                           args (apply merge (map #(do {(keyword (%1 0)) {:type (%1 1)}}) with-types))

@@ -50,6 +50,6 @@
       (str-schema resolver "type A { id: ID! ts: [Timestamp]! }")
       "{ As { ts }}"))))
 
-(deftest multiple-relations-of-same-type-forbidden
-  (is (thrown-with-msg? js/Error #"Type \'A\' contains duplicate links to types: \(\"B\"\)."
-                        (str-schema "type A { id: ID! b1: B b2: B } type B { id: ID! }"))))
+(deftest multiple-relations-of-same-type-with-reverse-link-forbidden
+  (is (thrown-with-msg? js/Error #"Type 'A' involves duplicate \(bidirectional\) links to types: \(\"B\"\)."
+                        (str-schema "type A { id: ID! b1: B b2: B } type B { id: ID! a: A }"))))
