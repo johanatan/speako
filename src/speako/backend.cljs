@@ -13,6 +13,7 @@
             [promesa.core :as p :refer-macros [alet]]
             [camel-snake-kebab.core :refer [->PascalCase ->camelCase ->kebab-case]]
             [cljs.pprint :refer [pprint]]
+            [clojure.core.match :refer [match]]
             [cats.core :as m :include-macros true]
             [cats.builtin]
             [clojure.set]))
@@ -202,6 +203,6 @@
         [lentity rentity] [(lcard :entity) (rcard :entity)]
         [ltable rtable] [(entity->table-name lentity) (entity->table-name rentity)]
         [lrelations rrelations] [(lentity relations) (rentity relations)]]
-    (condp = [(lcard :multiplicity) (rcard :multiplicity)]
-      [:one :many] (find-single-relation ltable (format "%sId" (singularize rtable)) rtable "id" lrelations)
-      [:many :one] (find-single-relation rtable (format "%sId" (singularize ltable)) ltable "id" rrelations))))
+    (match [(lcard :multiplicity) (rcard :multiplicity)]
+      [:one _] (find-single-relation ltable (format "%sId" (singularize rtable)) rtable "id" lrelations)
+      [_ :one] (find-single-relation rtable (format "%sId" (singularize ltable)) ltable "id" rrelations))))
