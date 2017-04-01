@@ -192,17 +192,26 @@
   (let [edges (unique-edges graph)]
     (mapcat (partial field-cardinalities graph) edges)))
 
-(defn- find-single-relation [table-name column-name foreign-table-name foreign-column-name relations]
-  (single (filter #(and (= (%1 :table-name) table-name)
-                        (= (%1 :foreign-table-name) foreign-table-name)
-                        (= (%1 :foreign-column-name) foreign-column-name)
-                        (= (%1 :column-name) column-name)) relations)))
+(defn- find-single-relation
+  ([table-name column-name foreign-table-name foreign-column-name relations]
+   (find-single-relation table-name column-name foreign-table-name foreign-column-name relations true))
+  ([table-name column-name foreign-table-name foreign-column-name relations assert?]
+   ((if assert? single first)
+    (filter #(and (= (%1 :table-name) table-name)
+                  (= (%1 :foreign-table-name) foreign-table-name)
+                  (= (%1 :foreign-column-name) foreign-column-name)
+                  (= (%1 :column-name) column-name)) relations))))
 
 (defn- get-relation [cardinality relations tables association-tables]
   (let [[lcard rcard] [(cardinality :left) (cardinality :right)]
         [lentity rentity] [(lcard :entity) (rcard :entity)]
         [ltable rtable] [(entity->table-name lentity) (entity->table-name rentity)]
-        [lrelations rrelations] [(lentity relations) (rentity relations)]]
+        [lrelations rrelations] [(lentity relations) (rentity relations)]
+        find-single #(apply find-single-relation
+                            (condp = %1
+                              :l->r [ltable (format "%sId" (singularize rtable)) rtable "id" lrelations %2]
+                              :r->l [rtable (format "%sId" (singularize ltable)) ltable "id" rrelations %2]))]
     (match [(lcard :multiplicity) (rcard :multiplicity)]
-      [:one _] (find-single-relation ltable (format "%sId" (singularize rtable)) rtable "id" lrelations)
-      [_ :one] (find-single-relation rtable (format "%sId" (singularize ltable)) ltable "id" rrelations))))
+      [:one :one] (or (find-single :l->r false) (find-single :r->l true))
+      [:one _] (find-single :l->r true)
+      [_ :one] (find-single :r->l true))))
