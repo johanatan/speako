@@ -33,19 +33,20 @@
 (defn jskeys [jsobj]
   (.keys js/Object jsobj))
 
-(defn single [col] (assert (= 1 (count col))) (first col))
+(defn single
+  ([col] (single col (format "Error: expected single element in collection: %s" col)))
+  ([col msg]
+   (assert (= 1 (count col)) msg)
+   (first col)))
 
 (defn pluralize [noun]
-  (let [kebabbed (->kebab-case noun)
-        splitted (string/split kebabbed #"-")
-        transforms (concat (repeat (- (count splitted) 1) identity) [pluralizer])
-        zipped (map vector splitted transforms)
-        transformed (map #((%1 1) (%1 0)) zipped)
-        joined (string/join "-" transformed)
-        pluralized (->PascalCase joined)]
+  (let [pluralized (pluralizer noun)]
     (if (= pluralized noun)
       (format "All%s" pluralized)
       pluralized)))
+
+(defn singularize [noun]
+  (.singular pluralizer noun))
 
 (defn duplicates [seq]
   (map key (remove (comp #{1} val) (frequencies seq))))
